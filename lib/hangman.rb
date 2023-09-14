@@ -1,9 +1,11 @@
-require './database'
+require_relative './database'
+require_relative './display'
 
 class Game
-  attr_reader :word, :tries
+  attr_accessor :word, :tries, :guess, :guesses, :game_str, :fails, :display
 
   include Database
+  include Display
 
   def initialize
     @tries = 7
@@ -13,16 +15,42 @@ class Game
     @guesses = []
     @fails = []
     @display = []
+
+    load_saves
   end
 
   def load_data
-    f = File.open('./data.txt', 'r')
-
-    words = File.readlines(f)
+    dir = __dir__
+    path = File.join(dir, 'data.txt')
+    words = nil
+    File.open(path, 'r') do |file|
+      words = File.readlines(file)
+    end
 
     shortlist = words.select { |word| word.length > 4 && word.length < 13 }
 
     shortlist.sample.chomp
+  end
+
+  def game_start
+    puts welcome
+    @saves.each_with_index { |save, idx| puts "#{idx + 1}) #{save}" }
+    prompt_mode
+  end
+
+  def prompt_mode
+    print 'Choose an option: '
+    mode = gets.chomp
+    if mode == 's'
+      system('clear')
+      nil
+    elsif mode.to_i >= 1 && mode.to_i <= @saves.length
+      idx = mode.to_i - 1
+      save = @saves[idx]
+      load_state(save)
+    else
+      prompt_mode
+    end
   end
 
   def display_word
@@ -40,8 +68,7 @@ class Game
 
     win if game_over?
 
-    print str.join(' ')
-    puts
+    puts str.join(' ')
   end
 
   def game_over?(guess = @game_str)
@@ -59,7 +86,7 @@ class Game
     exit
   end
 
-  def guess
+  def make_guess
     puts "Guesses left: #{@tries}"
     puts "Failed guesses: #{@fails.join(' ')}"
     print 'Guess a letter or type save to save your game: '
@@ -81,12 +108,3 @@ class Game
     hits.each { |hit| @display << hit }
   end
 end
-
-game = Game.new
-
-until game.tries.zero?
-  game.display_word
-  game.guess
-end
-
-game.game_over? ? game.win : game.lose
